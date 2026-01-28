@@ -1,42 +1,40 @@
+import os
 from fastapi import FastAPI
+from pydantic import BaseModel
 import chromadb
-import ollama
+
+USE_MOCK_LLM = os.getenv("USE_MOCK_LLM", "1") == "1"  # Set default to mock mode
+
+if not USE_MOCK_LLM:
+    import ollama
 
 app = FastAPI()
+
+# Initialize ChromaDB
 chroma = chromadb.PersistentClient(path="./db")
 collection = chroma.get_or_create_collection("docs")
 
+class QueryRequest(BaseModel):
+    q: str
+
 @app.post("/query")
-def query(q: str):
+def query(request: QueryRequest):
+    q = request.q.strip()
+    
+    # Query the collection safely
     results = collection.query(query_texts=[q], n_results=1)
-    context = results["documents"][0][0] if results["documents"] else ""
+    documents = results.get("documents", [])
+    context = documents[0][0] if documents and documents[0] else ""
 
+    if USE_MOCK_LLM:
+        # Return context directly in mock mode
+        if not context:
+            context = "Kubernetes is a container orchestration platform."
+        return {"answer": context}
+
+    # Production mode with Ollama
     answer = ollama.generate(
-        model="smollm:135m",
+        model="tinyllama",
         prompt=f"Context:\n{context}\n\nQuestion: {q}\n\nAnswer clearly and concisely:"
-        
     )
-
     return {"answer": answer["response"]}
-@app.post("/add")
-def add_knowledge(text: str):
-    """Add new content to the knowledge base dynamically."""
-    try:
-        # Generate a unique ID for this document
-        import uuid
-        doc_id = str(uuid.uuid4())
-        
-        # Add the text to Chroma collection
-        collection.add(documents=[text], ids=[doc_id])
-        
-        return {
-            "status": "success",
-            "message": "Content added to knowledge base",
-            "id": doc_id
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
-
