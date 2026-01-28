@@ -1,7 +1,10 @@
 import requests
 
 def test_kubernetes_query():
-    response = requests.post("http://127.0.0.1:8000/query?q=What is Kubernetes?")
+    response = requests.post(
+        "http://127.0.0.1:8000/query",
+        json={"q": "What is Kubernetes?"}  # <-- send JSON body, not query param
+    )
     
     if response.status_code != 200:
         raise Exception(f"Server returned {response.status_code}: {response.text}")
@@ -14,7 +17,10 @@ def test_kubernetes_query():
     print("✅ Kubernetes query test passed")
 
 def test_nextwork_query():
-    response = requests.post("http://127.0.0.1:8000/query?q=What is NextWork?")
+    response = requests.post(
+        "http://127.0.0.1:8000/query",
+        json={"q": "What is NextWork?"}  # <-- send JSON body
+    )
     
     if response.status_code != 200:
         raise Exception(f"Server returned {response.status_code}: {response.text}")
